@@ -23,15 +23,49 @@
 
 #include <Arduino.h>
 #include "CollectionError.h"
+#include "iterator_tpl.h"
 
 template<unsigned int C, CollectionErrorHandler E = IgnoreCollectionErrorHandler>
 class BitSet {
+private:
+	class IteratorState {
+	public:
+		inline void next(const BitSet* set) { 
+			if (_index < C) { 
+				_index++;
+			}
+		}
+		inline void prev(const BitSet* set) { 
+			if (_index > 0) { 
+				_index--;
+			}
+		}
+		inline void begin(const BitSet* set) {
+			_index = 0; 
+		}
+		inline void end(const BitSet* set) { 
+			_index = C; 
+		}
+		inline bool get(BitSet* set) { 
+			return set->operator[](_index);
+		}
+		inline const bool get(const BitSet* set) { 
+			return set->operator[](_index);
+		}
+		inline bool cmp(const IteratorState& s) const { 
+			return _index != s._index; 
+		}
+	private:
+		unsigned int _index;
+	};
 public:
 	unsigned int size() const;
 	bool operator [](const unsigned int i) const;
 	void set(const unsigned int i);
 	void unset(const unsigned int i);
 	void clear();
+	SETUP_ITERATORS(BitSet, bool, IteratorState);
+	SETUP_REVERSE_ITERATORS(BitSet, bool, IteratorState);
 private:
 	static constexpr unsigned int BITS = sizeof(unsigned int)*8;
 	static constexpr unsigned int MASK = BITS - 1;
@@ -54,7 +88,7 @@ inline bool BitSet<C, E>::assertValidRange(const unsigned int i) const {
 }
 
 template<unsigned int C, CollectionErrorHandler E>
-bool BitSet<C, E>::operator[](const unsigned int i) const {
+inline bool BitSet<C, E>::operator[](const unsigned int i) const {
 	if (assertValidRange(i)) {
 		return (_data[i / BITS] & (1 << (i & MASK))) > 0;
 	}

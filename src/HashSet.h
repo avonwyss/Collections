@@ -25,9 +25,40 @@
 #include "CollectionError.h"
 #include "HashComparer.h"
 #include "BitSet.h"
+#include "iterator_tpl.h"
 
 template<typename K, unsigned int C, class H = GenericHashComparer<K>, CollectionErrorHandler E = IgnoreCollectionErrorHandler>
 class HashSet {
+private:
+	class IteratorState {
+	public:
+		inline void next(const HashSet* set) { 
+			if (_bucket < C) { 
+				while (++_bucket < C) { 
+					if (set->_used[_bucket]) {
+						return;
+					}; 
+				}
+			}
+		}
+		inline void begin(const HashSet* set) {
+			_bucket = 0; 
+		}
+		inline void end(const HashSet* set) { 
+			_bucket = C; 
+		}
+		inline K get(HashSet* set) { 
+			return set->_keys[_bucket];
+		}
+		inline const K get(const HashSet* set) { 
+			return set->_keys[_bucket];
+		}
+		inline bool cmp(const IteratorState& s) const { 
+			return _bucket != s._bucket; 
+		}
+	private:
+		unsigned int _bucket;
+	};
 public:
 	unsigned int size() const;
 	bool isFull() const;
@@ -35,7 +66,7 @@ public:
 	bool add(K key);
 	bool remove(K key);
 	void clear();
-	bool tryGetBucket(unsigned int bucket, K& key) const;
+	SETUP_ITERATORS(HashSet, K, IteratorState);
 private:
 	BitSet<C> _used;
 	K _keys[C];
@@ -112,15 +143,6 @@ void HashSet<K, C, H, E>::clear() {
 	}
 	_used.clear();
 	_size = 0;
-}
-
-template<typename K, unsigned int C, class H, CollectionErrorHandler E>
-bool HashSet<K, C, H, E>::tryGetBucket(unsigned int bucket, K& key) const {
-	if ((bucket < C) && _used[bucket]) {
-		key = _keys[bucket];
-		return true;
-	}
-	return false;
 }
 
 #endif

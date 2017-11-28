@@ -23,9 +23,42 @@
 
 #include <Arduino.h>
 #include "CollectionError.h"
+#include "iterator_tpl.h"
 
 template<typename T, unsigned int C, CollectionErrorHandler E = IgnoreCollectionErrorHandler>
 class Deque {
+private:
+	static constexpr unsigned int SLOTS = C + 1;
+	class IteratorState {
+	public:
+		inline void next(const Deque* deque) {
+			if (_index != deque->_head) {
+				_index = (_index + 1) % SLOTS;
+			}
+		}
+		inline void prev(const Deque* deque) { 
+			if (_index != deque->_tail) {
+				_index = (_index + SLOTS - 1) % SLOTS;
+			}
+		}
+		inline void begin(const Deque* deque) {
+			_index = deque->_tail; 
+		}
+		inline void end(const Deque* deque) { 
+			_index = deque->_head; 
+		}
+		inline T& get(Deque* deque) { 
+			return deque->_data[_index];
+		}
+		inline const T& get(const Deque* deque) { 
+			return deque->_data[_index];
+		}
+		inline bool cmp(const IteratorState& s) const { 
+			return _index != s._index; 
+		}
+	private:
+		unsigned int _index;
+	};
 public:
 	unsigned int capacity() const;
 	unsigned int size() const;
@@ -39,8 +72,9 @@ public:
 	bool tryShift(T& value);
 	T peekFront() const;
 	T peekBack() const;
+	SETUP_ITERATORS(Deque, T&, IteratorState);
+	SETUP_REVERSE_ITERATORS(Deque, T&, IteratorState);
 private:
-	static constexpr unsigned int SLOTS = C + 1;
 	T _data[SLOTS];
 	unsigned int _head;
 	unsigned int _tail;

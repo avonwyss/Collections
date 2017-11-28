@@ -25,9 +25,51 @@
 #include "CollectionError.h"
 #include "HashComparer.h"
 #include "BitSet.h"
+#include "iterator_tpl.h"
 
 template<typename K, typename V, unsigned int C, class H = GenericHashComparer<K>, CollectionErrorHandler E = IgnoreCollectionErrorHandler>
 class HashMap {
+public:
+	class Pair {
+	public:
+		const K& key;
+		const V& value;
+		Pair(const K& key, const V& value): key(key), value(value) {}
+	};
+private:
+	class IteratorState {
+	public:
+		inline void next(const HashMap* map) { 
+			if (_bucket < C) { 
+				while (++_bucket < C) { 
+					if (map->_used[_bucket]) {
+						return;
+					}; 
+				}
+			}
+		}
+		inline void begin(const HashMap* map) {
+			_bucket = 0; 
+		}
+		inline void end(const HashMap* map) { 
+			_bucket = C; 
+		}
+		inline Pair get(HashMap* map) {
+			if (assertValidBucket(_bucket)) {
+				return Pair(map->_keys[_bucket], map->_values[_bucket]);
+			}
+		}
+		inline const Pair get(const HashMap* map) { 
+			if (assertValidBucket(_bucket)) {
+				return Pair(map->_keys[_bucket], map->_values[_bucket]);
+			}
+		}
+		inline bool cmp(const IteratorState& s) const { 
+			return _bucket != s._bucket; 
+		}
+	private:
+		unsigned int _bucket;
+	};
 public:
 	unsigned int capacity() const;
 	unsigned int size() const;
@@ -39,13 +81,24 @@ public:
 	void set(K key, V value);
 	bool remove(K key);
 	void clear();
-	bool tryGetBucket(unsigned int bucket, K& key, V& value) const;
+	SETUP_ITERATORS(HashMap, Pair, IteratorState);
 private:
 	BitSet<C> _used;
 	K _keys[C];
 	V _values[C];
 	unsigned int _size;
+
+	static bool assertValidBucket(const unsigned int bucket);
 };
+
+template<typename K, typename V, unsigned int C, class H, CollectionErrorHandler E>
+bool HashMap<K, V, C, H, E>::assertValidBucket(const unsigned int bucket) {
+	if (bucket < C) {
+		return true;
+	}
+	E(CollectionError::OutOfBound);
+	return false;
+}
 
 template<typename K, typename V, unsigned int C, class H, CollectionErrorHandler E>
 inline unsigned int HashMap<K, V, C, H, E>::capacity() const {
@@ -169,16 +222,6 @@ void HashMap<K, V, C, H, E>::clear() {
 	}
 	_used.clear();
 	_size = 0;
-}
-
-template<typename K, typename V, unsigned int C, class H, CollectionErrorHandler E>
-bool HashMap<K, V, C, H, E>::tryGetBucket(unsigned int bucket, K& key, V& value) const {
-	if ((bucket < C) && _used[bucket]) {
-		key = _keys[bucket];
-		value = _values[bucket];
-		return true;
-	}
-	return false;
 }
 
 #endif
